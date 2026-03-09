@@ -14,6 +14,7 @@ const _unused = nextConfig
 const nextConfigFinal = {
   ...nextConfig,
   typescript: { ignoreBuildErrors: true },
+  output: 'standalone',
   eslint: { ignoreDuringBuilds: true },
 };
 
