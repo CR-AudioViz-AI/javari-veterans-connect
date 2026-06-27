@@ -1,132 +1,199 @@
-// app/page.tsx - Javari Veterans Connect
-// AI tools built for veterans, first responders, and military families
-// CR AudioViz AI · EIN 39-3646201 · May 2026
 "use client";
-import { useState } from "react";
+// app/page.tsx — Javari Veterans Connect
+// AI tools for veterans, military families, and veteran service organizations
+// CR AudioViz AI · EIN 39-3646201 · June 2026
+import { useState, useCallback } from "react";
 
-const RESOURCES = [
-  { icon:"💼", label:"Business Plan Writer",    desc:"Start your veteran-owned business with AI",   href:"/business-plan" },
-  { icon:"💚", label:"VA Benefits Assistant",   desc:"Navigate VA claims and benefits",             href:"/va-benefits" },
-  { icon:"💵", label:"Grant Finder",            desc:"$250K+ in veteran business grants",           href:"https://craudiovizai.com/grants" },
-  { icon:"📄", label:"Resume Builder",          desc:"Military to civilian translation",            href:"/resume" },
-  { icon:"🎓", label:"GI Bill Navigator",       desc:"Maximize your education benefits",            href:"/gi-bill" },
-  { icon:"🏠", label:"VA Home Loan Guide",      desc:"Zero down, no PMI — how it works",            href:"/va-loan" },
-  { icon:"🤝", label:"Mentorship Network",      desc:"Connect with successful veteran entrepreneurs",href:"/mentorship" },
-  { icon:"🚒", label:"First Responders",        desc:"Tools for fire, police, EMS personnel",       href:"/first-responders" },
+const TOOLS = [
+  { id:"resume",    icon:"📄", label:"Military-to-Civilian Resume",   desc:"Translate your service into civilian language that gets interviews",   color:"#3B82F6" },
+  { id:"business",  icon:"🏢", label:"Veteran Business Plan",         desc:"Complete business plan for veteran entrepreneurs (SBA-ready)",         color:"#10B981" },
+  { id:"benefits",  icon:"⚕️",  label:"VA Benefits Navigator",        desc:"Understand your benefits, claims process, and next steps",             color:"#F59E0B" },
+  { id:"cover",     icon:"✉️",  label:"Cover Letter Writer",          desc:"Compelling cover letters that explain your military experience",        color:"#8B5CF6" },
+  { id:"grant",     icon:"💰", label:"VSO Grant Application",         desc:"Apply for veteran service organization grants and funding",             color:"#EC4899" },
+  { id:"press",     icon:"📰", label:"Press Release Writer",          desc:"Announce veteran events, programs, and milestones to media",            color:"#06B6D4" },
+  { id:"linkedin",  icon:"💼", label:"LinkedIn Profile",              desc:"Optimize your profile to attract civilian recruiters and opportunities", color:"#0EA5E9" },
+  { id:"housing",   icon:"🏠", label:"Housing Assistance Letter",     desc:"Support letters for VA housing programs and emergency assistance",      color:"#84CC16" },
 ];
 
-const STATS = [
-  { n:"2×",   l:"Free credits — veterans get double" },
-  { n:"$250K",l:"Average veteran grant available" },
-  { n:"18M",  l:"Veterans we serve" },
-  { n:"$0",   l:"Cost to get started" },
-];
+const FIELDS: Record<string, {label:string; placeholder:string}[]> = {
+  resume: [
+    {label:"Branch & Years of Service", placeholder:"US Army, 8 years, E-7 Sergeant First Class"},
+    {label:"Primary MOS/Rating",        placeholder:"68W Combat Medic / 11B Infantryman"},
+    {label:"Key accomplishments",       placeholder:"Led 12-person team, managed $2M equipment..."},
+    {label:"Target civilian job",       placeholder:"Healthcare coordinator, Operations Manager"},
+    {label:"Education/certifications",  placeholder:"Associate degree, Combat Lifesaver cert"},
+  ],
+  business: [
+    {label:"Business idea",     placeholder:"Veteran-owned HVAC company serving Fort Myers area"},
+    {label:"Your background",   placeholder:"10 years Army logistics, multiple deployments"},
+    {label:"Funding needed",    placeholder:"$50,000 SBA loan"},
+    {label:"Target customers",  placeholder:"Residential homeowners in Lee County"},
+    {label:"Competitive edge",  placeholder:"Veteran discount, 24/7 service, military precision"},
+  ],
+  benefits: [
+    {label:"Branch & years served",     placeholder:"Navy, 6 years active duty"},
+    {label:"Service-connected conditions",placeholder:"Knee injury, PTSD, hearing loss"},
+    {label:"Current rating",            placeholder:"30% or not yet rated"},
+    {label:"Specific questions",        placeholder:"How to appeal? What is Individual Unemployability?"},
+  ],
+  cover: [
+    {label:"Your rank/role",         placeholder:"Staff Sergeant, Squad Leader"},
+    {label:"Key skills from service",placeholder:"Leadership, logistics, team training, crisis management"},
+    {label:"Job you are applying to",placeholder:"Operations Manager at Amazon Logistics"},
+    {label:"Why this company",       placeholder:"Values align with military culture, growth opportunity"},
+  ],
+  grant: [
+    {label:"VSO name",           placeholder:"Fort Myers Veterans Coalition"},
+    {label:"Grant amount",       placeholder:"$25,000"},
+    {label:"Program purpose",    placeholder:"Job training for veterans transitioning from service"},
+    {label:"Veterans served/yr", placeholder:"150"},
+    {label:"Mission",            placeholder:"Connect veterans to employment and community resources"},
+  ],
+  press: [
+    {label:"Event/announcement", placeholder:"Annual Veterans Day Job Fair"},
+    {label:"Organization",       placeholder:"Lee County Veterans Services"},
+    {label:"Date & location",    placeholder:"November 11, 2026 · Harborside Event Center, Fort Myers"},
+    {label:"Key details",        placeholder:"50 employers, 200 veterans expected, free resume help"},
+    {label:"Contact info",       placeholder:"John Smith, (239) 555-0100"},
+  ],
+  linkedin: [
+    {label:"Branch & rank",   placeholder:"Marine Corps, Captain"},
+    {label:"Career field",    placeholder:"Intelligence analysis, strategic planning"},
+    {label:"Target industry", placeholder:"Cybersecurity, consulting, government contracting"},
+    {label:"Accomplishments", placeholder:"Led 40-person intelligence team, NATO deployment"},
+  ],
+  housing: [
+    {label:"Situation",          placeholder:"Recently discharged, need 60-day emergency housing"},
+    {label:"Family status",      placeholder:"Veteran, spouse, 2 children"},
+    {label:"Service details",    placeholder:"8 years, honorable discharge, OEF veteran"},
+    {label:"Program applying to",placeholder:"HUD-VASH, VA Supportive Housing, local emergency fund"},
+    {label:"Special circumstances",placeholder:"PTSD treatment ongoing, seeking stable environment for recovery"},
+  ],
+};
 
-export default function VeteransHome() {
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState("");
+const C = { bg:"#0a0f1a", card:"rgba(16,28,52,0.9)", blue:"#3B82F6", text:"#F0F8FF", text2:"#607090" };
+
+export default function VeteransPage() {
+  const [active, setActive]   = useState<string|null>(null);
+  const [fields, setFields]   = useState<Record<string,string>>({});
+  const [result, setResult]   = useState("");
   const [loading, setLoading] = useState(false);
+  const [copied, setCopied]   = useState(false);
+  const tool = TOOLS.find(t => t.id === active);
 
-  async function askVA() {
-    if (!question.trim()) return;
-    setLoading(true); setAnswer("");
+  const generate = useCallback(async () => {
+    if (!active) return;
+    setLoading(true); setResult("");
     try {
-      const res = await fetch("/api/chat", {
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({
-          messages:[{ role:"user", content: question }],
-          stream: false,
-          systemOverride: "You are Javari, a knowledgeable assistant specializing in veteran benefits, VA services, military transition, and resources for veterans and first responders. Provide accurate, compassionate, and actionable information. Always encourage veterans to contact the VA or a VSO for official guidance on specific claims."
-        }),
+      const res = await fetch("/api/generate", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ action: active, fields }),
       });
-      const data = await res.json();
-      setAnswer(data?.choices?.[0]?.message?.content || data?.content || "Error.");
-    } catch { setAnswer("Connection error."); }
+      const d = await res.json() as {result?:string};
+      setResult(d.result ?? "Error generating content");
+    } catch { setResult("Network error — please try again"); }
     setLoading(false);
-  }
+  }, [active, fields]);
 
   return (
-    <div style={{ minHeight:"100vh", background:"#040912", color:"#e2e8f0", fontFamily:"system-ui" }}>
-      <nav style={{ background:"#1E3A5F", padding:"0 20px", height:52, display:"flex", alignItems:"center", justifyContent:"space-between", position:"sticky", top:0, zIndex:100 }}>
-        <div style={{ display:"flex", alignItems:"center", gap:8 }}>
-          <span style={{ fontSize:20 }}>🎖️</span>
-          <span style={{ fontWeight:800, color:"#00B4D8", fontSize:15 }}>Veterans Connect</span>
-          <span style={{ color:"#374151", fontSize:11 }}>· Built for those who served</span>
-        </div>
-        <a href="https://craudiovizai.com/auth/signup" style={{ background:"#FF0800", color:"#fff", borderRadius:7, padding:"5px 14px", fontSize:12, fontWeight:700, textDecoration:"none" }}>Get 2× Free Credits</a>
-      </nav>
-
-      {/* Hero */}
-      <section style={{ background:"linear-gradient(135deg,#1E3A5F 0%,#040912 100%)", padding:"72px 24px 60px", textAlign:"center" }}>
-        <div style={{ maxWidth:660, margin:"0 auto" }}>
-          <div style={{ display:"inline-block", background:"rgba(255,8,0,0.12)", border:"1px solid rgba(255,8,0,0.25)", borderRadius:20, padding:"4px 16px", marginBottom:18, fontSize:12, fontWeight:700, color:"#FF0800", letterSpacing:"0.06em" }}>
-            🎖️ Veterans & First Responders Get 2× Free Credits
-          </div>
-          <h1 style={{ fontSize:"clamp(28px,4vw,50px)", fontWeight:900, color:"#fff", margin:"0 0 16px", lineHeight:1.05 }}>
-            You Served.<br /><span style={{ color:"#00B4D8" }}>We Have Your Back.</span>
+    <div style={{minHeight:"100vh", background:C.bg, color:C.text, fontFamily:"system-ui"}}>
+      <div style={{background:"linear-gradient(135deg,rgba(59,130,246,0.1),rgba(16,28,52,0.9))",
+        borderBottom:"1px solid rgba(59,130,246,0.2)", padding:"20px 24px",
+        display:"flex", justifyContent:"space-between", alignItems:"center"}}>
+        <div>
+          <h1 style={{margin:0, fontSize:22, fontWeight:900,
+            background:"linear-gradient(135deg,#3B82F6,#00D4FF)",
+            WebkitBackgroundClip:"text", WebkitTextFillColor:"transparent"}}>
+            🎖️ Javari Veterans Connect
           </h1>
-          <p style={{ fontSize:16, color:"rgba(255,255,255,0.7)", lineHeight:1.65, margin:"0 0 32px", maxWidth:500, marginLeft:"auto", marginRight:"auto" }}>
-            AI tools built specifically for veterans, first responders, and military families.
-            Navigate benefits, launch businesses, and connect with your community.
+          <p style={{margin:"4px 0 0", color:C.text2, fontSize:12}}>
+            AI tools for veterans, military families & VSOs · Free. Always. · CR AudioViz AI
           </p>
         </div>
-      </section>
+        <a href="https://craudiovizai.com" target="_blank" rel="noopener noreferrer"
+          style={{padding:"8px 16px", borderRadius:8,
+            background:"linear-gradient(135deg,#3B82F6,#00D4FF)",
+            color:"#fff", fontWeight:800, fontSize:11, textDecoration:"none"}}>
+          Full Platform →
+        </a>
+      </div>
 
-      {/* Ask Javari */}
-      <section style={{ maxWidth:680, margin:"40px auto 0", padding:"0 20px" }}>
-        <div style={{ background:"#0F1F32", border:"1px solid rgba(0,180,216,0.15)", borderRadius:16, padding:24 }}>
-          <h2 style={{ fontSize:16, fontWeight:700, color:"#fff", margin:"0 0 14px" }}>Ask Javari about your VA benefits</h2>
-          <div style={{ display:"flex", gap:8 }}>
-            <input value={question} onChange={e=>setQuestion(e.target.value)}
-              onKeyDown={e=>e.key==="Enter"&&askVA()}
-              placeholder="What VA benefits am I eligible for? How do I start a business as a vet?"
-              style={{ flex:1, background:"#172D48", border:"1px solid rgba(0,180,216,0.2)", borderRadius:8, padding:"11px 14px", color:"#e2e8f0", fontSize:13, outline:"none", fontFamily:"system-ui" }} />
-            <button onClick={askVA} disabled={loading||!question.trim()}
-              style={{ background: loading||!question.trim()?"#0F1F32":"#1E3A5F", color: loading||!question.trim()?"#374151":"#00B4D8", border:"1px solid rgba(0,180,216,0.2)", borderRadius:8, padding:"11px 18px", fontSize:13, fontWeight:700, cursor: loading||!question.trim()?"not-allowed":"pointer", fontFamily:"system-ui", whiteSpace:"nowrap" }}>
-              {loading?"...":"Ask"}
-            </button>
+      <div style={{maxWidth:900, margin:"0 auto", padding:"28px 20px"}}>
+        <div style={{marginBottom:24, padding:"14px 18px",
+          background:"rgba(59,130,246,0.08)", border:"1px solid rgba(59,130,246,0.2)",
+          borderRadius:10, textAlign:"center"}}>
+          <span style={{fontSize:13, color:C.blue, fontWeight:700}}>
+            🆓 Free for all veterans and military families
+          </span>
+          <span style={{color:C.text2, fontSize:11, marginLeft:12}}>
+            No account needed · Powered by Javari AI · Built with honor for those who served
+          </span>
+        </div>
+
+        {!active && (
+          <div style={{display:"grid", gridTemplateColumns:"repeat(auto-fill,minmax(200px,1fr))", gap:12}}>
+            {TOOLS.map(t => (
+              <button key={t.id} onClick={() => { setActive(t.id); setFields({}); setResult(""); }}
+                style={{padding:"16px", borderRadius:12, textAlign:"left",
+                  background:C.card, border:`1px solid ${t.color}30`,
+                  cursor:"pointer", fontFamily:"system-ui", color:C.text}}>
+                <div style={{fontSize:24, marginBottom:8}}>{t.icon}</div>
+                <div style={{fontWeight:800, fontSize:13, marginBottom:4}}>{t.label}</div>
+                <div style={{fontSize:11, color:C.text2}}>{t.desc}</div>
+              </button>
+            ))}
           </div>
-          {answer && (
-            <div style={{ marginTop:16, padding:"14px 16px", background:"rgba(0,180,216,0.06)", border:"1px solid rgba(0,180,216,0.12)", borderRadius:10, fontSize:13, lineHeight:1.65, color:"#e2e8f0", whiteSpace:"pre-wrap" }}>
-              {answer}
+        )}
+
+        {active && tool && (
+          <div>
+            <button onClick={() => { setActive(null); setResult(""); }}
+              style={{marginBottom:16, background:"none", border:"none", color:C.blue,
+                cursor:"pointer", fontSize:13, fontFamily:"system-ui"}}>← Back</button>
+            <div style={{padding:"20px", background:C.card, border:`1px solid ${tool.color}30`, borderRadius:14, marginBottom:16}}>
+              <h2 style={{margin:"0 0 4px", fontSize:18, fontWeight:900}}>{tool.icon} {tool.label}</h2>
+              <p style={{margin:"0 0 20px", color:C.text2, fontSize:12}}>{tool.desc}</p>
+              {(FIELDS[active] ?? []).map((f, i) => (
+                <div key={i} style={{marginBottom:12}}>
+                  <label style={{display:"block", fontSize:11, fontWeight:700, color:C.text2,
+                    marginBottom:4, textTransform:"uppercase", letterSpacing:"0.05em"}}>{f.label}</label>
+                  <textarea value={fields[f.label]??""} rows={2} placeholder={f.placeholder}
+                    onChange={e => setFields(p => ({...p, [f.label]: e.target.value}))}
+                    style={{width:"100%", padding:"10px 12px", borderRadius:8, fontSize:13,
+                      border:"1px solid rgba(255,255,255,0.1)", background:"rgba(0,0,0,0.3)",
+                      color:C.text, fontFamily:"system-ui", outline:"none",
+                      resize:"vertical", boxSizing:"border-box"}}/>
+                </div>
+              ))}
+              <button onClick={() => void generate()} disabled={loading}
+                style={{width:"100%", padding:"12px", borderRadius:10, fontWeight:800,
+                  fontSize:14, border:"none", cursor:loading?"not-allowed":"pointer",
+                  fontFamily:"system-ui", color:loading?"#607090":"#fff",
+                  background:loading?"rgba(255,255,255,0.06)":
+                    `linear-gradient(135deg,${tool.color},${tool.color}aa)`}}>
+                {loading ? "⏳ Generating..." : `✨ Generate ${tool.label}`}
+              </button>
             </div>
-          )}
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section style={{ maxWidth:800, margin:"40px auto 0", padding:"0 20px" }}>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(170px,1fr))", gap:14 }}>
-          {STATS.map(s=>(
-            <div key={s.n} style={{ background:"#0F1F32", border:"1px solid rgba(0,180,216,0.08)", borderRadius:12, padding:"18px 16px", textAlign:"center" }}>
-              <div style={{ fontSize:24, fontWeight:900, color:"#FF0800" }}>{s.n}</div>
-              <div style={{ fontSize:11, color:"#6B7280", marginTop:4, lineHeight:1.4 }}>{s.l}</div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Resources */}
-      <section style={{ maxWidth:960, margin:"0 auto", padding:"48px 20px 72px" }}>
-        <h2 style={{ textAlign:"center", fontSize:"clamp(18px,3vw,28px)", fontWeight:800, color:"#fff", margin:"0 0 32px" }}>Tools built for veterans</h2>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(210px,1fr))", gap:12 }}>
-          {RESOURCES.map(r=>(
-            <a key={r.href} href={r.href} style={{ background:"#0F1F32", border:"1px solid rgba(0,180,216,0.08)", borderRadius:14, padding:"20px 18px", textDecoration:"none", display:"block" }}>
-              <span style={{ fontSize:28, display:"block", marginBottom:8 }}>{r.icon}</span>
-              <div style={{ fontWeight:700, fontSize:13, color:"#e2e8f0", marginBottom:5 }}>{r.label}</div>
-              <div style={{ fontSize:12, color:"#6B7280", lineHeight:1.4 }}>{r.desc}</div>
-            </a>
-          ))}
-        </div>
-      </section>
-
-      <footer style={{ borderTop:"1px solid rgba(0,180,216,0.08)", padding:"14px 24px", textAlign:"center" }}>
-        <p style={{ color:"#374151", fontSize:11, margin:0 }}>
-          © 2026 CR AudioViz AI, LLC — EIN: 39-3646201 · Built with honor for those who served ·
-          <a href="https://craudiovizai.com/auth/signup" style={{ color:"#FF0800", textDecoration:"none", fontWeight:600, marginLeft:4 }}>Get 2× Free Credits</a>
-        </p>
-      </footer>
+            {result && (
+              <div style={{padding:"20px", background:"rgba(0,0,0,0.4)",
+                border:"1px solid rgba(255,255,255,0.08)", borderRadius:14}}>
+                <div style={{display:"flex", justifyContent:"space-between", marginBottom:12}}>
+                  <span style={{fontSize:13, fontWeight:700, color:"#10B981"}}>✅ Generated</span>
+                  <button onClick={async() => {await navigator.clipboard.writeText(result); setCopied(true); setTimeout(()=>setCopied(false),2000);}}
+                    style={{padding:"6px 14px", borderRadius:7, fontSize:11, fontWeight:700,
+                      background:copied?"rgba(16,185,129,0.15)":"rgba(255,255,255,0.08)",
+                      color:copied?"#10B981":"#607090",
+                      border:"1px solid "+(copied?"rgba(16,185,129,0.3)":"rgba(255,255,255,0.1)"),
+                      cursor:"pointer", fontFamily:"system-ui"}}>
+                    {copied?"✓ Copied!":"📋 Copy"}
+                  </button>
+                </div>
+                <pre style={{margin:0, whiteSpace:"pre-wrap", fontSize:13, lineHeight:1.6, color:C.text, fontFamily:"system-ui"}}>{result}</pre>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
